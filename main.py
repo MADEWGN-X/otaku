@@ -40,7 +40,7 @@ async def download_file(session, url, filename, total_size=None):
             os.remove(filename)
         return False
 
-async def download_all_files(links):
+async def download_all_files(links, download_path='dls'):
     """Download semua file dari list links"""
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -52,7 +52,7 @@ async def download_all_files(links):
                 continue
                 
             # Buat nama file dari kualitas
-            filename = f"video_{link['quality'].replace(' ', '_')}.mp4"
+            filename = os.path.join(download_path, f"video_{link['quality'].replace(' ', '_')}.mp4")
             
             # Convert size string ke bytes jika tersedia
             size = None
