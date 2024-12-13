@@ -5,6 +5,17 @@ import aiohttp
 import asyncio
 import os
 from tqdm import tqdm
+from pyrogram import Client
+from pyrogram.types import Message
+import math
+
+# Tambahkan konfigurasi Pyrogram client
+api_id = "2345226"  
+api_hash = "6cc6449dcef22f608af2cf7efb76c99d"
+bot_token = "7255389524:AAHzkOawoc5TPd9t_zEpIwS5Z_M7whhZfJo"
+
+# Inisialisasi client
+app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
 async def download_file(session, url, filename, total_size=None):
     """Download file dengan progress bar menggunakan aiohttp"""
@@ -115,6 +126,31 @@ def get_kfiles_links(url):
     
     return kfiles_links
 
+async def progress(current, total, message):
+    """Fungsi helper untuk menampilkan progress upload"""
+    percent = current * 100 / total
+    size = current / 1024 / 1024
+    total_size = total / 1024 / 1024
+    progress_str = f"{size:.2f}MB / {total_size:.2f}MB ({percent:.1f}%)"
+    try:
+        await message.edit_text(f"Mengupload file...\n{progress_str}")
+    except:
+        pass
+
+async def upload_file(file_path, chat_id, message):
+    """Upload file ke Telegram menggunakan Pyrogram"""
+    try:
+        await app.send_document(
+            chat_id=chat_id,
+            document=file_path,
+            progress=progress,
+            progress_args=(message,)
+        )
+        return True
+    except Exception as e:
+        print(f"Error uploading {file_path}: {str(e)}")
+        return False
+
 async def main():
     # Dapatkan links
     url = "https://otakudesu.cloud/episode/llp-sptr-s3-episode-10-sub-indo/"
@@ -133,6 +169,22 @@ async def main():
     # Print hasil download
     success = results.count(True)
     print(f"\nDownload selesai: {success}/{len(results)} file berhasil didownload")
+    
+    # Setelah download selesai, upload ke Telegram
+    async with app:
+        chat_id = "TARGET_CHAT_ID"  # Ganti dengan chat ID tujuan
+        status_msg = await app.send_message(chat_id, "Memulai upload...")
+        
+        for link in kfiles_links:
+            filename = f"video_{link['quality'].replace(' ', '_')}.mp4"
+            file_path = os.path.join('dls', filename)
+            if os.path.exists(file_path):
+                print(f"\nMengupload {filename}...")
+                success = await upload_file(file_path, chat_id, status_msg)
+                if success:
+                    print(f"Berhasil mengupload {filename}")
+                else:
+                    print(f"Gagal mengupload {filename}")
 
 if __name__ == "__main__":
     asyncio.run(main())
