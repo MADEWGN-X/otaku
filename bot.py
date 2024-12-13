@@ -106,7 +106,10 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         caption=f"**{link['title']}**\n\n"
                                 f"Resolusi: {link['quality']}\n"
                                 f"Channel: @otakudesu_id",
-                        supports_streaming=True
+                        supports_streaming=True,
+                        read_timeout=120,
+                        write_timeout=120,
+                        connect_timeout=120
                     )
                 
                 # Hapus file setelah upload
@@ -139,10 +142,8 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filename = os.path.join('dls', f"video_{selected_link['quality'].replace(' ', '_')}.mp4")
         await download_all_files([selected_link], download_path='dls')
         
-        # Upload ke Telegram
+        # Kirim sebagai video
         await status_msg.edit_text(f"⏳ Mengupload {selected_link['quality']}...")
-        
-        # Kirim video
         with open(filename, 'rb') as video:
             await context.bot.send_video(
                 chat_id=update.effective_chat.id,
@@ -150,7 +151,10 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=f"{selected_link['title']}\n\n"
                         f"Resolusi: {selected_link['quality']}\n"
                         f"Channel: @otakudesu_id",
-                supports_streaming=True
+                supports_streaming=True,
+                read_timeout=120,
+                write_timeout=120,
+                connect_timeout=120
             )
         
         # Hapus file setelah upload
