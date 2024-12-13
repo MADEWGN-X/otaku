@@ -142,8 +142,19 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filename = os.path.join('dls', f"video_{selected_link['quality'].replace(' ', '_')}.mp4")
         await download_all_files([selected_link], download_path='dls')
         
-        # Kirim sebagai video
-        await status_msg.edit_text(f"⏳ Mengupload {selected_link['quality']}...")
+        # Cek dan print ukuran file
+        file_size = os.path.getsize(filename)
+        file_size_mb = file_size / (1024 * 1024)  # Konversi ke MB
+        await status_msg.edit_text(f"📊 Ukuran file: {file_size_mb:.2f} MB\n⏳ Mengupload {selected_link['quality']}...")
+        
+        # Jika file lebih besar dari 50MB, tampilkan peringatan
+        if file_size_mb > 50:
+            await status_msg.edit_text(f"❌ File terlalu besar ({file_size_mb:.2f} MB). Telegram membatasi upload maksimal 50MB untuk bot.")
+            if os.path.exists(filename):
+                os.remove(filename)
+            return
+            
+        # Lanjutkan dengan upload jika ukuran sesuai
         with open(filename, 'rb') as video:
             await context.bot.send_video(
                 chat_id=update.effective_chat.id,
