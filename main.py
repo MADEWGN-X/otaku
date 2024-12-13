@@ -127,6 +127,7 @@ def get_kfiles_links(url):
                         download_url = link.get('href')
                         r = requests.get(download_url)
                         final_url = r.url
+                        print(server_name)
                         download_links.append({
                             'quality': quality.text,
                             'url': final_url,
