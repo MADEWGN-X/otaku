@@ -41,6 +41,14 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Buat keyboard inline dengan pilihan kualitas
         keyboard = []
+        # Tambahkan opsi download semua
+        keyboard.append([
+            InlineKeyboardButton(
+                "Download Semua Kualitas", 
+                callback_data="dl_all"
+            )
+        ])
+        # Tambahkan pilihan kualitas individual
         for i, link in enumerate(kfiles_links):
             keyboard.append([
                 InlineKeyboardButton(
@@ -67,17 +75,59 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    # Dapatkan index dari link yang dipilih
-    selected_index = int(query.data.split('_')[1])
     links = context.user_data.get('kfiles_links', [])
+    if not links:
+        await query.edit_message_text('❌ Data tidak valid!')
+        return
+
+    # Cek apakah user memilih download semua
+    if query.data == "dl_all":
+        status_msg = await query.edit_message_text("⏳ Mendownload semua kualitas...")
+        try:
+            for i, link in enumerate(links):
+                # Update status untuk setiap file
+                await status_msg.edit_text(
+                    f"⏳ Mendownload {link['quality']} ({i+1}/{len(links)})..."
+                )
+                
+                # Download file
+                filename = os.path.join('dls', f"video_{link['quality'].replace(' ', '_')}.mp4")
+                await download_all_files([link], download_path='dls')
+                
+                # Upload ke Telegram
+                await status_msg.edit_text(
+                    f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})..."
+                )
+                
+                with open(filename, 'rb') as video:
+                    await context.bot.send_video(
+                        chat_id=update.effective_chat.id,
+                        video=video,
+                        caption=f"✅ {link['quality']} - {link['size']}",
+                        supports_streaming=True
+                    )
+                
+                # Hapus file setelah upload
+                if os.path.exists(filename):
+                    os.remove(filename)
+            
+            await status_msg.edit_text("✅ Semua video berhasil didownload dan diupload!")
+            await asyncio.sleep(5)  # Tunggu 5 detik
+            await status_msg.delete()
+            
+        except Exception as e:
+            await status_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
+            # Bersihkan semua file di folder dls
+            cleanup_dls()
+        return
     
-    if not links or selected_index >= len(links):
+    # Proses download single file seperti sebelumnya
+    selected_index = int(query.data.split('_')[1])
+    if selected_index >= len(links):
         await query.edit_message_text('❌ Data tidak valid!')
         return
     
     selected_link = links[selected_index]
-    
-    # Update pesan
     status_msg = await query.edit_message_text(
         f"⏳ Mendownload {selected_link['quality']}..."
     )
@@ -85,9 +135,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Download file ke folder dls
         filename = os.path.join('dls', f"video_{selected_link['quality'].replace(' ', '_')}.mp4")
-        links_to_download = [selected_link]
-        
-        await download_all_files(links_to_download, download_path='dls')
+        await download_all_files([selected_link], download_path='dls')
         
         # Upload ke Telegram
         await status_msg.edit_text(f"⏳ Mengupload {selected_link['quality']}...")
