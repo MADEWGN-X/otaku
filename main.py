@@ -59,19 +59,12 @@ async def download_all_files(links, download_path='dls'):
     async with aiohttp.ClientSession() as session:
         tasks = []
         for link in links:
-            # Dapatkan direct link berdasarkan server
-            if link['server'] == 'KFiles':
-                direct_url = direct.krakenfiles(link['url'])
-            elif link['server'] == 'GoFile':
-                direct_url, header = direct.gofile(link['url'])
-            else:
-                print(f"Server tidak didukung: {link['server']}")
-                continue
-                
-            if isinstance(direct_url, str) and direct_url.startswith('ERROR'):
+            # Dapatkan direct link
+            direct_url = direct.krakenfiles(link['url'])
+            if direct_url.startswith('ERROR'):
                 print(f"Error getting direct link for {link['quality']}: {direct_url}")
                 continue
-            
+                
             # Buat nama file dari kualitas
             filename = os.path.join(download_path, f"video_{link['quality'].replace(' ', '_')}.mp4")
             
@@ -106,7 +99,7 @@ async def download_all_files(links, download_path='dls'):
 def get_kfiles_links(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
-    download_links = []
+    kfiles_links = []
     
     # Ambil judul dari tag title
     title = soup.find('title')
@@ -123,20 +116,18 @@ def get_kfiles_links(url):
                 links = item.find_all('a')
                 for link in links:
                     server_name = link.text.strip()
-                    if server_name in ['KFiles', 'GoFile']:  # Tambahkan Gofile
+                    if server_name == 'KFiles':
                         download_url = link.get('href')
                         r = requests.get(download_url)
                         final_url = r.url
-                        print(server_name)
-                        download_links.append({
+                        kfiles_links.append({
                             'quality': quality.text,
                             'url': final_url,
                             'size': item.find('i').text if item.find('i') else 'Unknown',
-                            'title': anime_title,
-                            'server': server_name  # Tambahkan info server
+                            'title': anime_title
                         })
     
-    return download_links
+    return kfiles_links
 
 async def progress(current, total, message):
     """Fungsi helper untuk menampilkan progress upload"""
