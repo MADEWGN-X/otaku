@@ -8,6 +8,9 @@ from tqdm import tqdm
 from pyrogram import Client
 from pyrogram.types import Message
 import math
+from hashlib import sha256
+from requests import Session
+from os import path as ospath
 
 # Tambahkan konfigurasi Pyrogram client
 api_id = "2345226"  
@@ -56,12 +59,19 @@ async def download_all_files(links, download_path='dls'):
     async with aiohttp.ClientSession() as session:
         tasks = []
         for link in links:
-            # Dapatkan direct link
-            direct_url = direct.krakenfiles(link['url'])
-            if direct_url.startswith('ERROR'):
-                print(f"Error getting direct link for {link['quality']}: {direct_url}")
+            # Dapatkan direct link berdasarkan server
+            if link['server'] == 'KFiles':
+                direct_url = direct.krakenfiles(link['url'])
+            elif link['server'] == 'Gofile':
+                direct_url, header = direct.gofile(link['url'])
+            else:
+                print(f"Server tidak didukung: {link['server']}")
                 continue
                 
+            if isinstance(direct_url, str) and direct_url.startswith('ERROR'):
+                print(f"Error getting direct link for {link['quality']}: {direct_url}")
+                continue
+            
             # Buat nama file dari kualitas
             filename = os.path.join(download_path, f"video_{link['quality'].replace(' ', '_')}.mp4")
             
@@ -96,7 +106,7 @@ async def download_all_files(links, download_path='dls'):
 def get_kfiles_links(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
-    kfiles_links = []
+    download_links = []
     
     # Ambil judul dari tag title
     title = soup.find('title')
@@ -113,18 +123,19 @@ def get_kfiles_links(url):
                 links = item.find_all('a')
                 for link in links:
                     server_name = link.text.strip()
-                    if server_name == 'KFiles':
+                    if server_name in ['KFiles', 'Gofile']:  # Tambahkan Gofile
                         download_url = link.get('href')
                         r = requests.get(download_url)
                         final_url = r.url
-                        kfiles_links.append({
+                        download_links.append({
                             'quality': quality.text,
                             'url': final_url,
                             'size': item.find('i').text if item.find('i') else 'Unknown',
-                            'title': anime_title
+                            'title': anime_title,
+                            'server': server_name  # Tambahkan info server
                         })
     
-    return kfiles_links
+    return download_links
 
 async def progress(current, total, message):
     """Fungsi helper untuk menampilkan progress upload"""

@@ -75,13 +75,24 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    links = context.user_data.get('kfiles_links', [])
+    # Parse callback data
+    data_parts = query.data.split('_')
+    action = data_parts[1]
+    server = data_parts[2]
+    
+    # Pilih links berdasarkan server
+    links = []
+    if server == 'kfiles':
+        links = context.user_data.get('kfiles_links', [])
+    else:
+        links = context.user_data.get('gofile_links', [])
+    
     if not links:
         await query.edit_message_text('❌ Data tidak valid!')
         return
 
     # Cek apakah user memilih download semua
-    if query.data == "dl_all":
+    if action == "all":
         status_msg = await query.edit_message_text("⏳ Mendownload semua kualitas...")
         try:
             for i, link in enumerate(links):
@@ -105,6 +116,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         video=video,
                         caption=f"**{link['title']}**\n\n"
                                 f"Resolusi: {link['quality']}\n"
+                                f"Server: {link['server']}\n"
                                 f"Channel: @otakudesu_id",
                         parse_mode='Markdown',
                         supports_streaming=True
@@ -124,8 +136,8 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cleanup_dls()
         return
     
-    # Proses download single file seperti sebelumnya
-    selected_index = int(query.data.split('_')[1])
+    # Proses download single file
+    selected_index = int(data_parts[1])
     if selected_index >= len(links):
         await query.edit_message_text('❌ Data tidak valid!')
         return
@@ -148,8 +160,9 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_video(
                 chat_id=update.effective_chat.id,
                 video=video,
-                caption=f"{selected_link['title']}\n\n"
+                caption=f"**{selected_link['title']}**\n\n"
                         f"Resolusi: {selected_link['quality']}\n"
+                        f"Server: {selected_link['server']}\n"
                         f"Channel: @otakudesu_id",
                 parse_mode='Markdown',
                 supports_streaming=True
