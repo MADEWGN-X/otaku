@@ -33,38 +33,31 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         # Dapatkan link download
-        kfiles_links = get_kfiles_links(url)
+        download_links = get_kfiles_links(url)
         
-        if not kfiles_links:
+        if not download_links:
             await processing_msg.edit_text('❌ Tidak ditemukan link download yang valid!')
             return
         
-        # Buat keyboard inline dengan pilihan kualitas
-        keyboard = []
-        # Tambahkan opsi download semua
-        keyboard.append([
-            InlineKeyboardButton(
-                "Download Semua Kualitas", 
-                callback_data="dl_all"
-            )
-        ])
-        # Tambahkan pilihan kualitas individual
-        for i, link in enumerate(kfiles_links):
-            keyboard.append([
-                InlineKeyboardButton(
-                    f"{link['quality']} ({link['size']})", 
-                    callback_data=f"dl_{i}"
-                )
-            ])
+        # Pisahkan link berdasarkan server
+        kfiles_links = [link for link in download_links if link['server'] == 'KFiles']
+        gofile_links = [link for link in download_links if link['server'] == 'GoFile']
         
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        # Buat keyboard inline untuk pilihan server
+        server_keyboard = [
+            [InlineKeyboardButton("KFiles", callback_data="server_kfiles")],
+            [InlineKeyboardButton("GoFile", callback_data="server_gofile")]
+        ]
+        
+        server_markup = InlineKeyboardMarkup(server_keyboard)
         
         # Simpan links di context untuk digunakan nanti
         context.user_data['kfiles_links'] = kfiles_links
+        context.user_data['gofile_links'] = gofile_links
         
         await processing_msg.edit_text(
-            'Pilih kualitas video yang ingin didownload:',
-            reply_markup=reply_markup
+            'Pilih server download:',
+            reply_markup=server_markup
         )
         
     except Exception as e:
@@ -77,6 +70,12 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Parse callback data
     data_parts = query.data.split('_')
+    
+    # Cek format callback data yang lama
+    if len(data_parts) == 2:  # Format lama: 'dl_0' atau 'dl_all'
+        # Gunakan KFiles sebagai default untuk kompatibilitas
+        data_parts.append('kfiles')
+    
     action = data_parts[1]
     server = data_parts[2]
     
@@ -137,17 +136,17 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # Proses download single file
-    selected_index = int(data_parts[1])
-    if selected_index >= len(links):
-        await query.edit_message_text('❌ Data tidak valid!')
-        return
-    
-    selected_link = links[selected_index]
-    status_msg = await query.edit_message_text(
-        f"⏳ Mendownload {selected_link['quality']}..."
-    )
-    
     try:
+        selected_index = int(action)  # Menggunakan action sebagai index
+        if selected_index >= len(links):
+            await query.edit_message_text('❌ Data tidak valid!')
+            return
+        
+        selected_link = links[selected_index]
+        status_msg = await query.edit_message_text(
+            f"⏳ Mendownload {selected_link['quality']}..."
+        )
+        
         # Download file ke folder dls
         filename = os.path.join('dls', f"video_{selected_link['quality'].replace(' ', '_')}.mp4")
         await download_all_files([selected_link], download_path='dls')
@@ -176,8 +175,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         await status_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
-        # Hapus file jika ada error
-        if os.path.exists(filename):
+        if 'filename' in locals() and os.path.exists(filename):
             os.remove(filename)
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

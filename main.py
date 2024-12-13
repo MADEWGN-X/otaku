@@ -62,7 +62,7 @@ async def download_all_files(links, download_path='dls'):
             # Dapatkan direct link berdasarkan server
             if link['server'] == 'KFiles':
                 direct_url = direct.krakenfiles(link['url'])
-            elif link['server'] == 'Gofile':
+            elif link['server'] == 'GoFile':
                 direct_url, header = direct.gofile(link['url'])
             else:
                 print(f"Server tidak didukung: {link['server']}")
@@ -123,7 +123,7 @@ def get_kfiles_links(url):
                 links = item.find_all('a')
                 for link in links:
                     server_name = link.text.strip()
-                    if server_name in ['KFiles', 'Gofile']:  # Tambahkan Gofile
+                    if server_name in ['KFiles', 'GoFile']:  # Tambahkan Gofile
                         download_url = link.get('href')
                         r = requests.get(download_url)
                         final_url = r.url
