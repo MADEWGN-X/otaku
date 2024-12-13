@@ -106,6 +106,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         caption=f"**{link['title']}**\n\n"
                                 f"Resolusi: {link['quality']}\n"
                                 f"Channel: @otakudesu_id",
+                        parse_mode='Markdown',
                         supports_streaming=True
                     )
                 
@@ -150,6 +151,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=f"{selected_link['title']}\n\n"
                         f"Resolusi: {selected_link['quality']}\n"
                         f"Channel: @otakudesu_id",
+                parse_mode='Markdown',
                 supports_streaming=True
             )
         
