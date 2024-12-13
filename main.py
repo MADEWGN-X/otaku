@@ -140,11 +140,13 @@ async def progress(current, total, message):
 async def upload_file(file_path, chat_id, message):
     """Upload file ke Telegram menggunakan Pyrogram"""
     try:
-        await app.send_document(
+        await app.send_video(
             chat_id=chat_id,
-            document=file_path,
+            video=file_path,
+            caption=f"Channel: @otakudesu_id",
             progress=progress,
-            progress_args=(message,)
+            progress_args=(message,),
+            supports_streaming=True  # Penting untuk file video besar
         )
         return True
     except Exception as e:
