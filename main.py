@@ -87,6 +87,10 @@ def get_kfiles_links(url):
     soup = BeautifulSoup(response.text, 'html.parser')
     kfiles_links = []
     
+    # Ambil judul dari tag title
+    title = soup.find('title')
+    anime_title = title.text.split('|')[0].strip() if title else 'Unknown Title'
+    
     download_div = soup.find('div', class_='download')
     
     if download_div:
@@ -105,7 +109,8 @@ def get_kfiles_links(url):
                         kfiles_links.append({
                             'quality': quality.text,
                             'url': final_url,
-                            'size': item.find('i').text if item.find('i') else 'Unknown'
+                            'size': item.find('i').text if item.find('i') else 'Unknown',
+                            'title': anime_title
                         })
     
     return kfiles_links

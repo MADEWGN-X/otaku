@@ -103,7 +103,9 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.send_video(
                         chat_id=update.effective_chat.id,
                         video=video,
-                        caption=f"✅ {link['quality']} - {link['size']}",
+                        caption=f"{link['title']}\n\n"
+                                f"Resolusi: {link['quality']}\n"
+                                f"Channel: @otakudesu_id",
                         supports_streaming=True
                     )
                 
@@ -145,7 +147,9 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_video(
                 chat_id=update.effective_chat.id,
                 video=video,
-                caption=f"✅ {selected_link['quality']} - {selected_link['size']}",
+                caption=f"{selected_link['title']}\n\n"
+                        f"Resolusi: {selected_link['quality']}\n"
+                        f"Channel: @otakudesu_id",
                 supports_streaming=True
             )
         
