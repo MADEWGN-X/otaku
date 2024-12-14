@@ -5,7 +5,6 @@ import asyncio
 from main import get_kfiles_links, download_all_files
 from pyrogram import Client
 import aiohttp
-import subprocess
 
 # Konfigurasi API
 api_id = "2345226"
@@ -77,46 +76,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await processing_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
 
-async def progress(current, total, message, text):
-    """Fungsi untuk menampilkan progress upload"""
-    try:
-        percent = current * 100 / total
-        progress_str = f"{text}\n" \
-                      f"Progress: {current * 100 / total:.1f}%\n" \
-                      f"[{'=' * int(percent/5)}{'.' * (20-int(percent/5))}]"
-        await message.edit_text(progress_str)
-    except Exception:
-        pass
-
-async def extract_thumbnail(video_path):
-    """Mengekstrak thumbnail dari video"""
-    try:
-        thumbnail_path = video_path.rsplit('.', 1)[0] + '_thumb.jpg'
-        
-        # Menggunakan ffmpeg untuk mengambil frame dari video
-        command = [
-            'ffmpeg', '-i', video_path,
-            '-ss', '00:00:01',  # ambil frame pada detik pertama
-            '-vframes', '1',
-            '-vf', 'scale=320:-1',  # resize thumbnail
-            thumbnail_path
-        ]
-        
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        
-        await process.communicate()
-        
-        if os.path.exists(thumbnail_path):
-            return thumbnail_path
-        return None
-    except Exception as e:
-        print(f"Error creating thumbnail: {str(e)}")
-        return None
-
 async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Menangani callback saat user memilih kualitas video"""
     query = update.callback_query
@@ -131,7 +90,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "dl_all":
         status_msg = await query.edit_message_text("⏳ Mendownload semua kualitas...")
         try:
-            async with app:
+            async with app:  # Mulai sesi Pyrogram
                 for i, link in enumerate(links):
                     await status_msg.edit_text(
                         f"⏳ Mendownload {link['quality']} ({i+1}/{len(links)})..."
@@ -140,32 +99,22 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     filename = os.path.join('dls', f"video_{link['quality'].replace(' ', '_')}.mp4")
                     await download_all_files([link], download_path='dls')
                     
-                    # Generate thumbnail
-                    thumbnail = await extract_thumbnail(filename)
-                    
                     await status_msg.edit_text(
                         f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})..."
                     )
                     
-                    # Upload dengan thumbnail
+                    # Upload menggunakan Pyrogram
                     await app.send_video(
                         chat_id=update.effective_chat.id,
                         video=filename,
                         caption=f"**{link['title']}**\n\n"
                                 f"Resolusi: {link['quality']}\n"
                                 f"Channel: @otakudesu_id",
-                        thumb=thumbnail if thumbnail else None,
-                        supports_streaming=True,
-                        progress=progress,
-                        progress_args=(status_msg, f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})")
+                        supports_streaming=True
                     )
-                    await asyncio.sleep(2)
                     
-                    # Hapus file video dan thumbnail
                     if os.path.exists(filename):
                         os.remove(filename)
-                    if thumbnail and os.path.exists(thumbnail):
-                        os.remove(thumbnail)
             
             await status_msg.edit_text("✅ Semua video berhasil didownload dan diupload!")
             await asyncio.sleep(5)
@@ -191,23 +140,18 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filename = os.path.join('dls', f"video_{selected_link['quality'].replace(' ', '_')}.mp4")
         await download_all_files([selected_link], download_path='dls')
         
-        # Generate thumbnail
-        thumbnail = await extract_thumbnail(filename)
-        
         file_size = os.path.getsize(filename)
         file_size_mb = file_size / (1024 * 1024)
         
-        await status_msg.edit_text(f"📊 Ukuran file: {file_size_mb:.2f} MB\n⏳ Mengupload {selected_link['quality']}...")
+        await status_msg.edit_text(f"⏳ Mengupload {selected_link['quality']}...")
         
         if file_size_mb > 50:
             await status_msg.edit_text(f"❌ File terlalu besar ({file_size_mb:.2f} MB). Telegram membatasi upload maksimal 50MB untuk bot.")
             if os.path.exists(filename):
                 os.remove(filename)
-            if thumbnail and os.path.exists(thumbnail):
-                os.remove(thumbnail)
             return
             
-        # Upload dengan thumbnail
+        # Upload menggunakan Pyrogram
         async with app:
             await app.send_video(
                 chat_id=update.effective_chat.id,
@@ -215,17 +159,11 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=f"{selected_link['title']}\n\n"
                         f"Resolusi: {selected_link['quality']}\n"
                         f"Channel: @otakudesu_id",
-                thumb=thumbnail if thumbnail else None,
-                supports_streaming=True,
-                progress=progress,
-                progress_args=(status_msg, f"⏳ Mengupload {selected_link['quality']}")
+                supports_streaming=True
             )
         
-        # Hapus file video dan thumbnail
         if os.path.exists(filename):
             os.remove(filename)
-        if thumbnail and os.path.exists(thumbnail):
-            os.remove(thumbnail)
             
         await status_msg.delete()
         
@@ -233,8 +171,6 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await status_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
         if os.path.exists(filename):
             os.remove(filename)
-        if thumbnail and os.path.exists(thumbnail):
-            os.remove(thumbnail)
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log Errors caused by Updates."""
