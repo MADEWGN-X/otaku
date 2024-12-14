@@ -87,8 +87,8 @@ async def generate_thumbnail(video_path):
         # Memuat video
         clip = VideoFileClip(video_path)
         
-        # Coba ambil frame di menit ke-2 (120 detik)
-        time = 120 if clip.duration > 120 else 30
+        # Coba ambil frame di menit ke-3 (180 detik)
+        time = 180 if clip.duration > 180 else 30
         
         # Mendapatkan frame
         frame = clip.get_frame(time)
