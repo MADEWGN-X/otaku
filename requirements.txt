@@ -1,0 +1,6 @@
+python-telegram-bot
+pyrogram
+tgcrypto
+aiohttp
+pillow
+moviepy 
