@@ -76,6 +76,17 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await processing_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
 
+async def progress(current, total, message, text):
+    """Fungsi untuk menampilkan progress upload"""
+    try:
+        percent = current * 100 / total
+        progress_str = f"{text}\n" \
+                      f"Progress: {current * 100 / total:.1f}%\n" \
+                      f"[{'=' * int(percent/5)}{'.' * (20-int(percent/5))}]"
+        await message.edit_text(progress_str)
+    except Exception:
+        pass
+
 async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Menangani callback saat user memilih kualitas video"""
     query = update.callback_query
@@ -90,7 +101,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "dl_all":
         status_msg = await query.edit_message_text("⏳ Mendownload semua kualitas...")
         try:
-            async with app:  # Mulai sesi Pyrogram
+            async with app:
                 for i, link in enumerate(links):
                     await status_msg.edit_text(
                         f"⏳ Mendownload {link['quality']} ({i+1}/{len(links)})..."
@@ -103,15 +114,18 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})..."
                     )
                     
-                    # Upload menggunakan Pyrogram
+                    # Upload dengan progress
                     await app.send_video(
                         chat_id=update.effective_chat.id,
                         video=filename,
                         caption=f"**{link['title']}**\n\n"
                                 f"Resolusi: {link['quality']}\n"
                                 f"Channel: @otakudesu_id",
-                        supports_streaming=True
+                        supports_streaming=True,
+                        progress=progress,
+                        progress_args=(status_msg, f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})")
                     )
+                    await asyncio.sleep(2)  # Tambah delay antar upload
                     
                     if os.path.exists(filename):
                         os.remove(filename)
@@ -151,7 +165,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 os.remove(filename)
             return
             
-        # Upload menggunakan Pyrogram
+        # Upload dengan progress
         async with app:
             await app.send_video(
                 chat_id=update.effective_chat.id,
@@ -159,7 +173,9 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=f"{selected_link['title']}\n\n"
                         f"Resolusi: {selected_link['quality']}\n"
                         f"Channel: @otakudesu_id",
-                supports_streaming=True
+                supports_streaming=True,
+                progress=progress,
+                progress_args=(status_msg, f"⏳ Mengupload {selected_link['quality']}")
             )
         
         if os.path.exists(filename):
