@@ -141,7 +141,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})..."
                     )
                     
-                    # Upload menggunakan Pyrogram dengan thumbnail
+                    # Upload menggunakan Pyrogram dengan thumbnail dan ukuran spesifik
                     await app.send_video(
                         chat_id=update.effective_chat.id,
                         video=filename,
@@ -149,6 +149,8 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 f"Resolusi: {link['quality']}\n"
                                 f"Channel: @otakudesu_id",
                         thumb=thumbnail_path if thumbnail_path else None,
+                        width=1280,
+                        height=725,
                         supports_streaming=True
                     )
                     
@@ -187,7 +189,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await status_msg.edit_text(f"⏳ Mengupload {selected_link['quality']}...")
         
-        # Upload menggunakan Pyrogram dengan thumbnail
+        # Upload menggunakan Pyrogram dengan thumbnail dan ukuran spesifik
         async with app:
             await app.send_video(
                 chat_id=update.effective_chat.id,
@@ -196,6 +198,8 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         f"Resolusi: {selected_link['quality']}\n"
                         f"Channel: @otakudesu_id",
                 thumb=thumbnail_path if thumbnail_path else None,
+                width=1280,
+                height=725,
                 supports_streaming=True
             )
         
