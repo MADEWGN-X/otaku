@@ -5,7 +5,7 @@ import asyncio
 from main import get_kfiles_links, download_all_files
 from pyrogram import Client
 import aiohttp
-import cv2
+from moviepy.editor import VideoFileClip
 from PIL import Image
 import numpy as np
 
@@ -80,55 +80,35 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await processing_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
 
 async def generate_thumbnail(video_path):
-    """Membuat thumbnail dari video menggunakan OpenCV dan PIL"""
+    """Membuat thumbnail dari video menggunakan moviepy"""
     try:
         thumbnail_path = video_path.rsplit('.', 1)[0] + '_thumb.jpg'
         
-        # Buka video menggunakan OpenCV
-        video = cv2.VideoCapture(video_path)
+        # Memuat video
+        clip = VideoFileClip(video_path)
         
-        # Hitung posisi frame di menit ke-2
-        fps = video.get(cv2.CAP_PROP_FPS)
-        total_frames = video.get(cv2.CAP_PROP_FRAME_COUNT)
+        # Coba ambil frame di menit ke-2 (120 detik)
+        time = 120 if clip.duration > 120 else 30
         
-        # Coba ambil frame di menit ke-2
-        target_frame = int(fps * 120)  # 120 detik = 2 menit
+        # Mendapatkan frame
+        frame = clip.get_frame(time)
         
-        # Jika video lebih pendek dari 2 menit, ambil frame di detik ke-30
-        if target_frame >= total_frames:
-            target_frame = int(fps * 30)  # 30 detik
+        # Konversi ke PIL Image dan resize
+        image = Image.fromarray(frame)
+        image = image.resize((1280, 725), Image.Resampling.LANCZOS)
         
-        # Set posisi frame
-        video.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+        # Simpan thumbnail
+        image.save(thumbnail_path, "JPEG", quality=90)
         
-        # Baca frame
-        success, frame = video.read()
+        # Tutup video
+        clip.close()
         
-        if success:
-            # Konversi BGR ke RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            # Konversi ke PIL Image
-            image = Image.fromarray(frame_rgb)
-            
-            # Resize ke 1280x725 tanpa mempertahankan rasio
-            image = image.resize((1280, 725), Image.Resampling.LANCZOS)
-            
-            # Simpan thumbnail
-            image.save(thumbnail_path, "JPEG", quality=90)
-            
-            # Tutup video
-            video.release()
-            
-            return thumbnail_path
-        else:
-            video.release()
-            return None
+        return thumbnail_path
             
     except Exception as e:
         print(f"Error generating thumbnail: {e}")
-        if 'video' in locals():
-            video.release()
+        if 'clip' in locals():
+            clip.close()
         return None
 
 async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
