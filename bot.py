@@ -76,6 +76,16 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await processing_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
 
+async def generate_thumbnail(video_path):
+    """Membuat thumbnail dari video menggunakan ffmpeg"""
+    try:
+        thumbnail_path = video_path.rsplit('.', 1)[0] + '_thumb.jpg'
+        os.system(f'ffmpeg -i "{video_path}" -ss 00:00:01.000 -vframes 1 "{thumbnail_path}"')
+        return thumbnail_path
+    except Exception as e:
+        print(f"Error generating thumbnail: {e}")
+        return None
+
 async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Menangani callback saat user memilih kualitas video"""
     query = update.callback_query
@@ -99,22 +109,29 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     filename = os.path.join('dls', f"video_{link['quality'].replace(' ', '_')}.mp4")
                     await download_all_files([link], download_path='dls')
                     
+                    # Generate thumbnail
+                    thumbnail_path = await generate_thumbnail(filename)
+                    
                     await status_msg.edit_text(
                         f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})..."
                     )
                     
-                    # Upload menggunakan Pyrogram
+                    # Upload menggunakan Pyrogram dengan thumbnail
                     await app.send_video(
                         chat_id=update.effective_chat.id,
                         video=filename,
                         caption=f"**{link['title']}**\n\n"
                                 f"Resolusi: {link['quality']}\n"
                                 f"Channel: @otakudesu_id",
+                        thumb=thumbnail_path if thumbnail_path else None,
                         supports_streaming=True
                     )
                     
+                    # Hapus file video dan thumbnail
                     if os.path.exists(filename):
                         os.remove(filename)
+                    if thumbnail_path and os.path.exists(thumbnail_path):
+                        os.remove(thumbnail_path)
             
             await status_msg.edit_text("✅ Semua video berhasil didownload dan diupload!")
             await asyncio.sleep(5)
@@ -140,9 +157,12 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filename = os.path.join('dls', f"video_{selected_link['quality'].replace(' ', '_')}.mp4")
         await download_all_files([selected_link], download_path='dls')
         
+        # Generate thumbnail
+        thumbnail_path = await generate_thumbnail(filename)
+        
         await status_msg.edit_text(f"⏳ Mengupload {selected_link['quality']}...")
         
-        # Upload menggunakan Pyrogram
+        # Upload menggunakan Pyrogram dengan thumbnail
         async with app:
             await app.send_video(
                 chat_id=update.effective_chat.id,
@@ -150,11 +170,15 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=f"**{selected_link['title']}**\n\n"
                         f"Resolusi: {selected_link['quality']}\n"
                         f"Channel: @otakudesu_id",
+                thumb=thumbnail_path if thumbnail_path else None,
                 supports_streaming=True
             )
         
+        # Hapus file video dan thumbnail
         if os.path.exists(filename):
             os.remove(filename)
+        if thumbnail_path and os.path.exists(thumbnail_path):
+            os.remove(thumbnail_path)
             
         await status_msg.delete()
         
@@ -162,6 +186,8 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await status_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
         if os.path.exists(filename):
             os.remove(filename)
+        if thumbnail_path and os.path.exists(thumbnail_path):
+            os.remove(thumbnail_path)
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log Errors caused by Updates."""
