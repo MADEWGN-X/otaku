@@ -3,10 +3,16 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 import asyncio
 from main import get_kfiles_links, download_all_files
+from pyrogram import Client
 import aiohttp
 
-# Ganti dengan token bot Telegram Anda
-TOKEN = "7255389524:AAHzkOawoc5TPd9t_zEpIwS5Z_M7whhZfJo"
+# Konfigurasi API
+api_id = "2345226"
+api_hash = "6cc6449dcef22f608af2cf7efb76c99d" 
+bot_token = "7255389524:AAHzkOawoc5TPd9t_zEpIwS5Z_M7whhZfJo"
+
+# Inisialisasi client Pyrogram
+app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
 # Buat folder dls jika belum ada
 if not os.path.exists('dls'):
@@ -84,49 +90,42 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "dl_all":
         status_msg = await query.edit_message_text("⏳ Mendownload semua kualitas...")
         try:
-            for i, link in enumerate(links):
-                # Update status untuk setiap file
-                await status_msg.edit_text(
-                    f"⏳ Mendownload {link['quality']} ({i+1}/{len(links)})..."
-                )
-                
-                # Download file
-                filename = os.path.join('dls', f"video_{link['quality'].replace(' ', '_')}.mp4")
-                await download_all_files([link], download_path='dls')
-                
-                # Upload ke Telegram
-                await status_msg.edit_text(
-                    f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})..."
-                )
-                
-                with open(filename, 'rb') as video:
-                    await context.bot.send_video(
+            async with app:  # Mulai sesi Pyrogram
+                for i, link in enumerate(links):
+                    await status_msg.edit_text(
+                        f"⏳ Mendownload {link['quality']} ({i+1}/{len(links)})..."
+                    )
+                    
+                    filename = os.path.join('dls', f"video_{link['quality'].replace(' ', '_')}.mp4")
+                    await download_all_files([link], download_path='dls')
+                    
+                    await status_msg.edit_text(
+                        f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})..."
+                    )
+                    
+                    # Upload menggunakan Pyrogram
+                    await app.send_video(
                         chat_id=update.effective_chat.id,
-                        video=video,
+                        video=filename,
                         caption=f"**{link['title']}**\n\n"
                                 f"Resolusi: {link['quality']}\n"
                                 f"Channel: @otakudesu_id",
-                        supports_streaming=True,
-                        read_timeout=120,
-                        write_timeout=120,
-                        connect_timeout=120
+                        supports_streaming=True
                     )
-                
-                # Hapus file setelah upload
-                if os.path.exists(filename):
-                    os.remove(filename)
+                    
+                    if os.path.exists(filename):
+                        os.remove(filename)
             
             await status_msg.edit_text("✅ Semua video berhasil didownload dan diupload!")
-            await asyncio.sleep(5)  # Tunggu 5 detik
+            await asyncio.sleep(5)
             await status_msg.delete()
             
         except Exception as e:
             await status_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
-            # Bersihkan semua file di folder dls
             cleanup_dls()
         return
     
-    # Proses download single file seperti sebelumnya
+    # Proses download single file
     selected_index = int(query.data.split('_')[1])
     if selected_index >= len(links):
         await query.edit_message_text('❌ Data tidak valid!')
@@ -138,37 +137,31 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     try:
-        # Download file ke folder dls
         filename = os.path.join('dls', f"video_{selected_link['quality'].replace(' ', '_')}.mp4")
         await download_all_files([selected_link], download_path='dls')
         
-        # Cek dan print ukuran file
         file_size = os.path.getsize(filename)
-        file_size_mb = file_size / (1024 * 1024)  # Konversi ke MB
+        file_size_mb = file_size / (1024 * 1024)
+        
         await status_msg.edit_text(f"📊 Ukuran file: {file_size_mb:.2f} MB\n⏳ Mengupload {selected_link['quality']}...")
         
-        # Jika file lebih besar dari 50MB, tampilkan peringatan
         if file_size_mb > 50:
             await status_msg.edit_text(f"❌ File terlalu besar ({file_size_mb:.2f} MB). Telegram membatasi upload maksimal 50MB untuk bot.")
             if os.path.exists(filename):
                 os.remove(filename)
             return
             
-        # Lanjutkan dengan upload jika ukuran sesuai
-        with open(filename, 'rb') as video:
-            await context.bot.send_video(
+        # Upload menggunakan Pyrogram
+        async with app:
+            await app.send_video(
                 chat_id=update.effective_chat.id,
-                video=video,
+                video=filename,
                 caption=f"{selected_link['title']}\n\n"
                         f"Resolusi: {selected_link['quality']}\n"
                         f"Channel: @otakudesu_id",
-                supports_streaming=True,
-                read_timeout=120,
-                write_timeout=120,
-                connect_timeout=120
+                supports_streaming=True
             )
         
-        # Hapus file setelah upload
         if os.path.exists(filename):
             os.remove(filename)
             
@@ -176,7 +169,6 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         await status_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
-        # Hapus file jika ada error
         if os.path.exists(filename):
             os.remove(filename)
 
@@ -201,7 +193,7 @@ def main():
     cleanup_dls()
     
     # Buat aplikasi
-    application = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(bot_token).build()
 
     # Tambahkan handlers
     application.add_handler(CommandHandler("start", start))
