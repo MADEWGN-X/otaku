@@ -140,23 +140,14 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filename = os.path.join('dls', f"video_{selected_link['quality'].replace(' ', '_')}.mp4")
         await download_all_files([selected_link], download_path='dls')
         
-        file_size = os.path.getsize(filename)
-        file_size_mb = file_size / (1024 * 1024)
-        
         await status_msg.edit_text(f"⏳ Mengupload {selected_link['quality']}...")
         
-        if file_size_mb > 50:
-            await status_msg.edit_text(f"❌ File terlalu besar ({file_size_mb:.2f} MB). Telegram membatasi upload maksimal 50MB untuk bot.")
-            if os.path.exists(filename):
-                os.remove(filename)
-            return
-            
         # Upload menggunakan Pyrogram
         async with app:
             await app.send_video(
                 chat_id=update.effective_chat.id,
                 video=filename,
-                caption=f"{selected_link['title']}\n\n"
+                caption=f"**{selected_link['title']}**\n\n"
                         f"Resolusi: {selected_link['quality']}\n"
                         f"Channel: @otakudesu_id",
                 supports_streaming=True
