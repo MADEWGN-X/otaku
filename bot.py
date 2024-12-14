@@ -80,8 +80,15 @@ async def generate_thumbnail(video_path):
     """Membuat thumbnail dari video menggunakan ffmpeg"""
     try:
         thumbnail_path = video_path.rsplit('.', 1)[0] + '_thumb.jpg'
-        os.system(f'ffmpeg -i "{video_path}" -ss 00:00:01.000 -vframes 1 "{thumbnail_path}"')
-        return thumbnail_path
+        # Mengambil frame dari menit ke-2 (120 detik) dan mengatur ukuran 16:9
+        os.system(f'ffmpeg -i "{video_path}" -ss 00:02:00.000 -vframes 1 -s 1280x720 "{thumbnail_path}"')
+        
+        # Cek apakah thumbnail berhasil dibuat
+        if not os.path.exists(thumbnail_path):
+            # Jika gagal di menit ke-2, coba ambil dari detik ke-30
+            os.system(f'ffmpeg -i "{video_path}" -ss 00:00:30.000 -vframes 1 -s 1280x720 "{thumbnail_path}"')
+        
+        return thumbnail_path if os.path.exists(thumbnail_path) else None
     except Exception as e:
         print(f"Error generating thumbnail: {e}")
         return None
