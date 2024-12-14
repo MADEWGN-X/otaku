@@ -5,6 +5,7 @@ import asyncio
 from main import get_kfiles_links, download_all_files
 from pyrogram import Client
 import aiohttp
+import subprocess
 
 # Konfigurasi API
 api_id = "2345226"
@@ -87,6 +88,35 @@ async def progress(current, total, message, text):
     except Exception:
         pass
 
+async def extract_thumbnail(video_path):
+    """Mengekstrak thumbnail dari video"""
+    try:
+        thumbnail_path = video_path.rsplit('.', 1)[0] + '_thumb.jpg'
+        
+        # Menggunakan ffmpeg untuk mengambil frame dari video
+        command = [
+            'ffmpeg', '-i', video_path,
+            '-ss', '00:00:01',  # ambil frame pada detik pertama
+            '-vframes', '1',
+            '-vf', 'scale=320:-1',  # resize thumbnail
+            thumbnail_path
+        ]
+        
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        await process.communicate()
+        
+        if os.path.exists(thumbnail_path):
+            return thumbnail_path
+        return None
+    except Exception as e:
+        print(f"Error creating thumbnail: {str(e)}")
+        return None
+
 async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Menangani callback saat user memilih kualitas video"""
     query = update.callback_query
@@ -110,25 +140,32 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     filename = os.path.join('dls', f"video_{link['quality'].replace(' ', '_')}.mp4")
                     await download_all_files([link], download_path='dls')
                     
+                    # Generate thumbnail
+                    thumbnail = await extract_thumbnail(filename)
+                    
                     await status_msg.edit_text(
                         f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})..."
                     )
                     
-                    # Upload dengan progress
+                    # Upload dengan thumbnail
                     await app.send_video(
                         chat_id=update.effective_chat.id,
                         video=filename,
                         caption=f"**{link['title']}**\n\n"
                                 f"Resolusi: {link['quality']}\n"
                                 f"Channel: @otakudesu_id",
+                        thumb=thumbnail if thumbnail else None,
                         supports_streaming=True,
                         progress=progress,
                         progress_args=(status_msg, f"⏳ Mengupload {link['quality']} ({i+1}/{len(links)})")
                     )
-                    await asyncio.sleep(2)  # Tambah delay antar upload
+                    await asyncio.sleep(2)
                     
+                    # Hapus file video dan thumbnail
                     if os.path.exists(filename):
                         os.remove(filename)
+                    if thumbnail and os.path.exists(thumbnail):
+                        os.remove(thumbnail)
             
             await status_msg.edit_text("✅ Semua video berhasil didownload dan diupload!")
             await asyncio.sleep(5)
@@ -154,6 +191,9 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filename = os.path.join('dls', f"video_{selected_link['quality'].replace(' ', '_')}.mp4")
         await download_all_files([selected_link], download_path='dls')
         
+        # Generate thumbnail
+        thumbnail = await extract_thumbnail(filename)
+        
         file_size = os.path.getsize(filename)
         file_size_mb = file_size / (1024 * 1024)
         
@@ -163,9 +203,11 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await status_msg.edit_text(f"❌ File terlalu besar ({file_size_mb:.2f} MB). Telegram membatasi upload maksimal 50MB untuk bot.")
             if os.path.exists(filename):
                 os.remove(filename)
+            if thumbnail and os.path.exists(thumbnail):
+                os.remove(thumbnail)
             return
             
-        # Upload dengan progress
+        # Upload dengan thumbnail
         async with app:
             await app.send_video(
                 chat_id=update.effective_chat.id,
@@ -173,13 +215,17 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=f"{selected_link['title']}\n\n"
                         f"Resolusi: {selected_link['quality']}\n"
                         f"Channel: @otakudesu_id",
+                thumb=thumbnail if thumbnail else None,
                 supports_streaming=True,
                 progress=progress,
                 progress_args=(status_msg, f"⏳ Mengupload {selected_link['quality']}")
             )
         
+        # Hapus file video dan thumbnail
         if os.path.exists(filename):
             os.remove(filename)
+        if thumbnail and os.path.exists(thumbnail):
+            os.remove(thumbnail)
             
         await status_msg.delete()
         
@@ -187,6 +233,8 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await status_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
         if os.path.exists(filename):
             os.remove(filename)
+        if thumbnail and os.path.exists(thumbnail):
+            os.remove(thumbnail)
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log Errors caused by Updates."""
