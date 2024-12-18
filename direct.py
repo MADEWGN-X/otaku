@@ -197,3 +197,7 @@ def get_captcha_token(session, params):
     res = session.post(f"{recaptcha_api}/reload", params=params)
     if token := findall(r'"rresp","(.*?)"', res.text):
         return token[0]
+
+if __name__ == "__main__":
+    print(gofile('https://gofile.io/d/hMHl5p'))
+    print(krakenfiles('https://krakenfiles.com/view/b0vnArqC2h/file.html'))

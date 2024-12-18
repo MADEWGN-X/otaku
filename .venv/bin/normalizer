@@ -1,4 +1,4 @@
-#!/home/madewgn/otaku/.venv/bin/python
+#!/workspaces/otaku/.venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
