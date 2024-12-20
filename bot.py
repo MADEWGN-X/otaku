@@ -43,6 +43,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Dapatkan link download
         kfiles_links = get_kfiles_links(url)
+        print(kfiles_links)
         
         if not kfiles_links:
             await processing_msg.edit_text('❌ Tidak ditemukan link download yang valid!')
@@ -147,7 +148,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         video=filename,
                         caption=f"**{link['title']}**\n\n"
                                 f"Resolusi: {link['quality']}\n"
-                                f"Channel: @otakudesu_id",
+                                f"Channel: @Anime_sub_indo_AR",
                         thumb=thumbnail_path if thumbnail_path else None,
                         width=1280,
                         height=725,
@@ -196,7 +197,7 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 video=filename,
                 caption=f"**{selected_link['title']}**\n\n"
                         f"Resolusi: {selected_link['quality']}\n"
-                        f"Channel: @otakudesu_id",
+                        f"Channel: @Anime_sub_indo_AR",
                 thumb=thumbnail_path if thumbnail_path else None,
                 width=1280,
                 height=725,
