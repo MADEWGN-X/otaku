@@ -8,6 +8,7 @@ import aiohttp
 from moviepy.editor import VideoFileClip
 from PIL import Image
 import numpy as np
+from list import get_episode_list
 
 # Konfigurasi API
 api_id = "2345226"
@@ -32,12 +33,17 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Menangani URL yang dikirim user"""
     url = update.message.text
     
-    # Validasi URL
-    if not url.startswith('https://otakudesu.cloud/episode/'):
+    # Check if URL is an anime list page
+    if 'otakudesu.cloud/anime/' in url:
+        await process_list(update, context)
+        return
+        
+    # Check if URL is an episode page
+    if not 'otakudesu.cloud/episode' in url:
         await update.message.reply_text('Link tidak valid! Gunakan link dari otakudesu.cloud')
         return
     
-    # Kirim pesan sedang memproses
+    # Handle episode download logic
     processing_msg = await update.message.reply_text('⏳ Sedang mengambil informasi video...')
     
     try:
@@ -214,10 +220,83 @@ async def download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         await status_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
-        if os.path.exists(filename):
+        if os.exists(filename):
             os.remove(filename)
         if thumbnail_path and os.path.exists(thumbnail_path):
             os.remove(thumbnail_path)
+
+async def process_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle anime list URL"""
+    url = update.message.text
+    
+    if not 'otakudesu.cloud/anime/' in url:
+        await update.message.reply_text('Link tidak valid! Gunakan link daftar anime dari otakudesu.cloud')
+        return
+    
+    status_msg = await update.message.reply_text('⏳ Mengambil daftar episode...')
+    try:
+        episodes = get_episode_list(url)
+        print(episodes)
+        if not episodes:
+            await status_msg.edit_text('❌ Tidak ada episode yang ditemukan!')
+            return
+            
+        await status_msg.edit_text(f'📑 Ditemukan {len(episodes)} episode\n⏳ Mulai memproses...')
+        
+        for i, episode in enumerate(episodes, 1):
+            try:
+                await status_msg.edit_text(f'⏳ Memproses episode {i}/{len(episodes)}\n{episode["title"]}')
+                
+                # Get download links for episode
+                kfiles_links = get_kfiles_links(episode['url'])
+                if not kfiles_links:
+                    continue
+                    
+                # Filter for 720p quality
+                selected_link = None
+                for link in kfiles_links:
+                    if '720p' in link['quality'].lower():
+                        selected_link = link
+                        break
+                        
+                if not selected_link:
+                    await status_msg.edit_text(f'⚠️ Kualitas 720p tidak ditemukan untuk episode {i}')
+                    continue
+                
+                # Download 720p version
+                filename = os.path.join('dls', f"video_Mp4_720p.mp4")
+                await download_all_files([selected_link], download_path='dls')
+                thumbnail_path = await generate_thumbnail(filename)
+                
+                # Upload to Telegram
+                async with app:
+                    await app.send_video(
+                        chat_id=update.effective_chat.id,
+                        video=filename,
+                        caption=f"**{selected_link['title']}**\n\n"
+                                f"Resolusi: 720p\n"
+                                f"Channel: @Anime_sub_indo_AR",
+                        thumb=thumbnail_path if thumbnail_path else None,
+                        width=1280,
+                        height=725,
+                        supports_streaming=True
+                    )
+# ...existing code...
+                # Cleanup
+                if os.path.exists(filename):
+                    os.remove(filename)
+                if thumbnail_path and os.path.exists(thumbnail_path):
+                    os.remove(thumbnail_path)
+                    
+            except Exception as e:
+                print(f"Error processing episode {i}: {e}")
+                continue
+        
+        await status_msg.edit_text("✅ Semua episode selesai diproses!")
+        
+    except Exception as e:
+        await status_msg.edit_text(f'❌ Terjadi kesalahan: {str(e)}')
+        cleanup_dls()
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log Errors caused by Updates."""
@@ -246,6 +325,10 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(download_callback, pattern='^dl_'))
+    application.add_handler(MessageHandler(
+        filters.Regex(r'https://otakudesu\.cloud/anime/.*') & ~filters.COMMAND, 
+        process_list
+    ))
     
     # Error handler
     application.add_error_handler(error_handler)
@@ -255,4 +338,4 @@ def main():
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
-    main() 
+    main()
